@@ -1,0 +1,256 @@
+*/ Load the data from directory;
+data mroz;
+  infile '/folders/myshortcuts/Stat448/handbook3/datasets/Mroz.csv' dlm=',' firstobs = 2;
+  input work $ charhoursw $ charchild6 $ charchild618 $ charagew $ chareducw $ charhearnw $ 
+  		charwagew $ charhoursh $ charageh $ chareduch $ charwageh $ charincome $ chareducwm $ 
+  		chareducwf $ charunemprate $ city $ experience;	
+  hoursw = charhoursw * 1;
+  child6 = charchild6 * 1;
+  child618 = charchild618 * 1;
+  agew = charagew * 1;
+  educw = chareducw * 1;
+  hearnw = charhearnw * 1;
+  wagew = charwagew * 1;
+  hoursh = charhoursh * 1;
+  ageh = charageh * 1;
+  educh = chareduch * 1;
+  wageh = charwageh * 1;
+  income = charincome * 1;
+  educwm = chareducwm * 1;
+  educwf = chareducwf * 1;
+  unemprate = charunemprate * 1;
+  drop charhoursw -- charunemprate;
+run; 
+
+proc print data=mroz;
+run; 
+
+*/Descriptive stats;
+proc means mean median std max min mode data=mroz;
+run;
+
+*/Create workcity;
+data mroz;
+	set mroz;
+	if work = "yes" and city = "yes" then workcity = "A";
+	else if work = "yes" and city = "no" then workcity = "B";
+	else if work = "no" and city = "yes" then workcity = "C";
+	else if work = "no" and city = "no" then workcity = "D";
+run; 
+
+*/ Initial discriminant analysis fitting;
+proc discrim data=mroz manova pool=test outd=outdens out=outresub crossvalidate;
+	class workcity;
+	var child6 -- educw hoursh -- unemprate experience;
+	priors proportional;
+run;
+
+*/ Variable selection for discriminant analysis;
+proc stepdisc data=mroz method=stepwise sle=.05 sls=.05;
+   	class workcity;
+	var child6 -- educw hoursh -- unemprate experience;
+run;
+
+*/ Quadratic discriminant analysis with selected variables;
+proc discrim data=mroz manova pool=no crossvalidate outd=outdens out=outresub;
+	priors proportional;
+	class workcity;
+	var child6 agew educw hoursh educh wageh income unemprate experience;
+run;	
+
+*/ Kernel Density npar method;
+proc discrim data=mroz manova pool=no crossvalidate outd=outdens out=outresub method=npar r=0.4 kernel=normal;
+	priors proportional;
+	class workcity;
+	var child6 agew educw hoursh educh wageh income unemprate experience;
+run;	
+	
+*/Discriminant Analysis w/ work as the response;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens out=outresub;
+	priors proportional;
+	class work;
+	var child6 -- educw hoursh -- unemprate experience;
+run;
+
+*/Stepwise variable selection for work model;
+proc stepdisc data=mroz method=stepwise sle=.05 sls=.05;
+   	class work;
+	var child6 -- educw hoursh -- unemprate experience;
+run;
+
+*/Final reduced work model;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens out=outresub;
+	priors proportional;
+	class work;
+	var child6 agew educw hoursh wageh income experience;
+run;
+
+*/ Kernel Density npar method;
+proc discrim data=mroz manova pool=no crossvalidate outd=outdens out=outresub method=npar r=0.5 kernel=normal;
+	priors proportional;
+	class work;
+	var child6 agew educw hoursh wageh income experience;
+run;
+
+
+*/Checking the effect of children on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens2 out=outresub2;
+	priors proportional;
+	class work;
+	var child6;
+run;
+data postprobs2;
+	set outresub2;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs2;
+	by child6;
+run;
+proc sgplot data=postprobs2;
+	series x=child6 y=prob / group=g;
+run;
+
+*/Checking the effect of woman's age on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens3 out=outresub3;
+	priors proportional;
+	class work;
+	var agew;
+run;
+data postprobs3;
+	set outresub3;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs3;
+	by agew;
+run;
+proc sgplot data=postprobs3;
+	series x=agew y=prob / group=g;
+run;
+
+*/Checking the effect of woman's education on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens3 out=outresub3;
+	priors proportional;
+	class work;
+	var educw;
+run;
+data postprobs3;
+	set outresub3;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs3;
+	by educw;
+run;
+proc sgplot data=postprobs3;
+	series x=educw y=prob / group=g;
+run;
+
+*/Checking the effect of husband' hours on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens3 out=outresub3;
+	priors proportional;
+	class work;
+	var hoursh;
+run;
+data postprobs3;
+	set outresub3;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs3;
+	by hoursh;
+run;
+proc sgplot data=postprobs3;
+	series x=hoursh y=prob / group=g;
+run;
+
+*/Checking the effect of husband' wage on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens3 out=outresub3;
+	priors proportional;
+	class work;
+	var wageh;
+run;
+data postprobs3;
+	set outresub3;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs3;
+	by wageh;
+run;
+proc sgplot data=postprobs3;
+	series x=wageh y=prob / group=g;
+run;
+
+*/Checking the effect of income on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens3 out=outresub3;
+	priors proportional;
+	class work;
+	var income;
+run;
+data postprobs3;
+	set outresub3;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs3;
+	by income;
+run;
+proc sgplot data=postprobs3;
+	series x=income y=prob / group=g;
+run;
+
+*/Checking the effect of husband' wage on probability of work;
+proc discrim data=mroz manova pool=test crossvalidate outd=outdens3 out=outresub3;
+	priors proportional;
+	class work;
+	var experience;
+run;
+data postprobs3;
+	set outresub3;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+run;
+proc sort data=postprobs3;
+	by experience;
+run;
+proc sgplot data=postprobs3;
+	series x=experience y=prob / group=g;
+run;
+
+
+*/Correlation matrix of reduced predictors;
+proc sort data=mroz;
+	By work;
+run;
+proc corr data=mroz pearson;
+	var child6 agew educw hoursh wageh income experience;
+run;
+
+
+*/Checking the effect of wageh on the probability of work while holding the other variables constant;
+data postprobs;
+	set outresub;
+	g = "yes"; prob = yes; output;
+    	g = "no"; prob = no; output;
+    where child6 = 0; 
+    where agew = 43;
+    where educw = 12;
+    where hoursh = 1920;
+    */where wageh = 8.3333;
+    where income = 15500;
+    where experience = 10;
+run;
+proc sort data=postprobs;
+	by wageh;
+run;
+proc sgplot data=postprobs;
+	series x=wageh y=prob / group=g;
+run;
+
+
+
+
+
+
